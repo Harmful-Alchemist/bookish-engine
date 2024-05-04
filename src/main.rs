@@ -54,18 +54,21 @@ impl Parser {
                 Ok((prev.0, prev.1.to_vec()))
             }
             Then(first, second) => {
-                if tokens.is_empty() {return Ok((tokens,nodes.to_vec()))}
-                match first.parse(tokens.clone(), nodes)? {
-                (first_ts, first_ns) if first_ts.len() < tokens.len() => {
-                    match second.parse(first_ts.clone(), &first_ns)? {
-                        (second_ts, second_ns) if second_ts.len() < first_ts.len() => {
-                            Ok((second_ts, second_ns.to_vec()))
-                        }
-                        _ => Ok((tokens, nodes.to_vec())),
-                    }
+                if tokens.is_empty() {
+                    return Ok((tokens, nodes.to_vec()));
                 }
-                _ => Ok((tokens, nodes.to_vec())),
-            }},
+                match first.parse(tokens.clone(), nodes)? {
+                    (first_ts, first_ns) if first_ts.len() < tokens.len() => {
+                        match second.parse(first_ts.clone(), &first_ns)? {
+                            (second_ts, second_ns) if second_ts.len() < first_ts.len() => {
+                                Ok((second_ts, second_ns.to_vec()))
+                            }
+                            _ => Ok((tokens, nodes.to_vec())),
+                        }
+                    }
+                    _ => Ok((tokens, nodes.to_vec())),
+                }
+            }
             Expr => {
                 if tokens.is_empty() {
                     Ok((tokens, nodes.to_vec()))
@@ -77,15 +80,11 @@ impl Parser {
                 [DivT, ..] => Ok((tokens[1..].to_vec(), nodes.to_vec())),
                 _ => Ok((tokens, nodes.to_vec())),
             },
-            MulP => {
-                match tokens[..] {
-                    [MulT, ..] => Ok((tokens[1..].to_vec(), nodes.to_vec())),
-                    _ => Ok((tokens, nodes.to_vec())),
-                }
-            }
+            MulP => match tokens[..] {
+                [MulT, ..] => Ok((tokens[1..].to_vec(), nodes.to_vec())),
+                _ => Ok((tokens, nodes.to_vec())),
+            },
             Number => {
-
-
                 if tokens.is_empty() {
                     return Ok((tokens, nodes.to_vec()));
                 }
@@ -215,14 +214,12 @@ fn tokenize(inp: &String) -> Result<Vec<Token>, &'static str> {
 
     Ok(inp
         .chars()
-        .filter_map(|c| {
-            match c {
-                '1' => Some(One),
-                '0' => Some(Zero),
-                '/' => Some(DivT),
-                '*' => Some(MulT),
-                _ => None,
-            }
+        .filter_map(|c| match c {
+            '1' => Some(One),
+            '0' => Some(Zero),
+            '/' => Some(DivT),
+            '*' => Some(MulT),
+            _ => None,
         })
         .collect())
 }
