@@ -1,5 +1,5 @@
 use crate::Node::{DivN, MulN, NumberN, Temp};
-use crate::Parser::{Digit, DivE, DivP, Exactly, Expr, MulE, MulP, Number, Or, Then};
+use crate::Parser::{Digit, DivE, DivP, Exactly, Expr, If, MulE, MulP, Number, Or, Repeat, Then};
 use crate::Token::{DivT, MulT, One, Zero};
 use std::env;
 
@@ -9,11 +9,12 @@ fn main() -> Result<(), String> {
         return Err("Need exactly one argument".to_string());
     }
     let tokens = tokenize(&args[1])?;
-    // dbg!(&tokens);
     let parsed = Expr.parse(tokens, &[])?;
-    //dbg!(&parsed);
     if !parsed.0.is_empty() {
-        return Err(format!("Remaining input '{:?}'!", parsed.0));
+        return Err(format!(
+            "Remaining input '{:?}' with parsed '{:?}'!",
+            parsed.0, parsed.1
+        ));
     }
     let nodes = parsed.1;
 
@@ -33,17 +34,28 @@ enum Parser {
     DivP,
     MulE,
     DivE,
-    If{pred: fn(Vec<Token>,Vec<Node>) -> bool, parser: Self}
+    If {
+        pred: fn(Vec<Token>, &[Node]) -> bool,
+        parser: Box<Self>,
+    },
+    Repeat(Box<Self>),
 }
 
 impl Parser {
-    fn parse(
-        &self,
-        tokens: Vec<Token>,
-        nodes: &[Node],
-    ) -> Result<(Vec<Token>, Vec<Node>), String> {
+    fn parse(&self, tokens: Vec<Token>, nodes: &[Node]) -> Result<(Vec<Token>, Vec<Node>), String> {
         match self {
-            Then(first, second) => match first.parse(tokens.clone(), nodes)? {
+            Repeat(parser) => {
+                let mut prev = (tokens, nodes.to_vec());
+                let mut next = parser.parse(prev.0.clone(), &prev.1)?;
+                while !prev.0.is_empty() && &next.0.len() < &prev.0.len() {
+                    prev = (next.0.clone(), next.1);
+                    next = parser.parse(prev.0.clone(), &prev.1)?;
+                }
+                Ok((prev.0, prev.1.to_vec()))
+            }
+            Then(first, second) => {
+                if tokens.is_empty() {return Ok((tokens,nodes.to_vec()))}
+                match first.parse(tokens.clone(), nodes)? {
                 (first_ts, first_ns) if first_ts.len() < tokens.len() => {
                     match second.parse(first_ts.clone(), &first_ns)? {
                         (second_ts, second_ns) if second_ts.len() < first_ts.len() => {
@@ -53,29 +65,43 @@ impl Parser {
                     }
                 }
                 _ => Ok((tokens, nodes.to_vec())),
-            },
-            Expr => Or(Box::new(DivE), Box::new(MulE)).parse(tokens, nodes),
+            }},
+            Expr => {
+                if tokens.is_empty() {
+                    Ok((tokens, nodes.to_vec()))
+                } else {
+                    Repeat(Box::new(Or(Box::new(DivE), Box::new(MulE)))).parse(tokens, nodes)
+                }
+            }
             DivP => match tokens[..] {
                 [DivT, ..] => Ok((tokens[1..].to_vec(), nodes.to_vec())),
                 _ => Ok((tokens, nodes.to_vec())),
             },
-            MulP => match tokens[..] {
-                [MulT, ..] => Ok((tokens[1..].to_vec(), nodes.to_vec())),
-                _ => Ok((tokens, nodes.to_vec())),
-            },
+            MulP => {
+                match tokens[..] {
+                    [MulT, ..] => Ok((tokens[1..].to_vec(), nodes.to_vec())),
+                    _ => Ok((tokens, nodes.to_vec())),
+                }
+            }
             Number => {
+
+
+                if tokens.is_empty() {
+                    return Ok((tokens, nodes.to_vec()));
+                }
+
                 return match Exactly(4, Box::new(Digit)).parse(tokens.clone(), nodes)? {
-                    (new_tokens, new_ns) if new_ns.len() >= 4 && new_tokens.len() < tokens.len() => {
+                    (new_tokens, new_ns)
+                        if new_ns.len() >= 4 && new_tokens.len() < tokens.len() =>
+                    {
                         let mut new_nodes = vec![NumberN(to_i8(&new_ns[0..4])?)];
                         new_nodes.append(&mut nodes.to_vec());
-                        //dbg!(&new_nodes);
                         Ok((new_tokens, new_nodes))
                     }
                     _ => Ok((tokens, nodes.to_vec())),
                 };
             }
             Or(first, second) => match first.parse(tokens.clone(), nodes)? {
-                //TODO ah the number works? And still in nodes? Dunno...
                 (new_tokens, new_nodes) if new_tokens.len() < tokens.len() => {
                     Ok((new_tokens, new_nodes))
                 }
@@ -83,8 +109,7 @@ impl Parser {
             },
             Exactly(amount, parser) => {
                 let mut next = (tokens.clone(), nodes.to_vec());
-                for i in 0..*amount {
-                    // dbg!(i);
+                for _ in 0..*amount {
                     match parser.parse(next.0.clone(), &next.1)? {
                         (new_tokens, new_nodes) if new_tokens.len() < next.0.len() => {
                             next = (new_tokens, new_nodes)
@@ -95,14 +120,13 @@ impl Parser {
                 Ok(next)
             }
             Digit => {
-                // dbg!(&tokens);
+                if tokens.is_empty() {
+                    return Ok((tokens, nodes.to_vec()));
+                }
                 match tokens[0] {
                     Zero => {
                         let mut new_nodes = vec![Temp(0)];
                         new_nodes.append(&mut nodes.to_vec());
-                        // dbg!(&new_nodes);
-                        // dbg!(&tokens);
-                        // dbg!(&tokens[1..]);
                         Ok((tokens[1..].to_vec(), new_nodes))
                     }
                     One => {
@@ -113,69 +137,70 @@ impl Parser {
                     _ => Ok((tokens, nodes.to_vec())),
                 }
             }
-            MulE => {
-                //dbg!("MulE");
-                match Then(
-                    Box::new(Then(
-                        Box::new(Number), //right recursive doesn't work next step
-                        Box::new(MulP),
-                    )),
-                    Box::new(Number),
-                )
-                    .parse(tokens.clone(), nodes)?
-                {
-                    (new_ts, new_ns) if new_ts.len() < tokens.len() => {
-                        let mut newer_ns = vec![MulN {
-                            lhs: Box::new(new_ns[0].clone()),
-                            rhs: Box::new(new_ns[1].clone()),
-                        }];
-                        newer_ns.append(&mut new_ns[2..].to_vec());
-                        Ok((new_ts, newer_ns))
-                    }
-                    _ => Ok((tokens, nodes.to_vec())),
-                }
-            }
-            DivE => {
-                //dbg!("MulE");
-                match Then(
-                    Box::new(Then(
-                        Box::new(Number), //right recursive doesn't work next step
-                        Box::new(DivP),
-                    )),
-                    Box::new(Number),
-                )
-                    .parse(tokens.clone(), nodes)?
-                {
-                    (new_ts, new_ns) if new_ts.len() < tokens.len() => {
-                        let mut newer_ns = vec![DivN {
-                            lhs: Box::new(new_ns[0].clone()),
-                            rhs: Box::new(new_ns[1].clone()),
-                        }];
-                        newer_ns.append(&mut new_ns[2..].to_vec());
-                        Ok((new_ts, newer_ns))
-                    }
-                    _ => Ok((tokens, nodes.to_vec())),
+            MulE => op(tokens, nodes, false),
+            DivE => op(tokens, nodes, true),
+            If { pred, parser } => {
+                if pred(tokens.clone(), nodes) {
+                    parser.parse(tokens, nodes)
+                } else {
+                    Ok((tokens, nodes.to_vec()))
                 }
             }
         }
     }
 }
 
+fn op(tokens: Vec<Token>, nodes: &[Node], div: bool) -> Result<(Vec<Token>, Vec<Node>), String> {
+    if tokens.is_empty() {
+        return Ok((tokens, nodes.to_vec()));
+    }
+
+    let parser = if div { DivP } else { MulP };
+    match Then(
+        Box::new(Or(
+            Box::new(If {
+                pred: |_, y| match y.first() {
+                    Some(MulN { .. }) | Some(DivN { .. }) => true,
+                    _ => false,
+                },
+                parser: Box::new(parser.clone()),
+            }),
+            Box::new(Then(Box::new(Number), Box::new(parser))),
+        )),
+        Box::new(Number),
+    )
+    .parse(tokens.clone(), nodes)?
+    {
+        (new_ts, new_ns) if new_ts.len() < tokens.len() => {
+            let lhs = Box::new(new_ns[0].clone());
+            let rhs = Box::new(new_ns[1].clone());
+            let node = if div {
+                DivN { lhs, rhs }
+            } else {
+                MulN { lhs, rhs }
+            };
+            let mut newer_ns = vec![node];
+            newer_ns.append(&mut new_ns[2..].to_vec());
+            Ok((new_ts, newer_ns))
+        }
+        _ => Ok((tokens, nodes.to_vec())),
+    }
+}
+
 fn to_i8(inp: &[Node]) -> Result<i8, &'static str> {
-    let mut res = 0;
-    //dbg!(&inp);
+    let mut res = 0x0F;
     for x in inp {
-        res = res << 1;
+        res = res >> 1;
         match x {
             Temp(0) => {}
-            Temp(1) => res = res + 1,
+            Temp(1) => res = res + 8,
             _ => return Err("Uh no"),
         }
     }
     Ok(res)
 }
 
-#[derive(Clone, Debug,Eq,PartialEq)]
+#[derive(Clone, Debug, Eq, PartialEq)]
 enum Node {
     NumberN(i8),
     MulN { rhs: Box<Self>, lhs: Box<Self> },
@@ -191,7 +216,6 @@ fn tokenize(inp: &String) -> Result<Vec<Token>, &'static str> {
     Ok(inp
         .chars()
         .filter_map(|c| {
-            // dbg!(&c);
             match c {
                 '1' => Some(One),
                 '0' => Some(Zero),
@@ -203,7 +227,7 @@ fn tokenize(inp: &String) -> Result<Vec<Token>, &'static str> {
         .collect())
 }
 
-#[derive(Debug, Copy, Clone,Eq, PartialEq)]
+#[derive(Debug, Copy, Clone, Eq, PartialEq)]
 enum Token {
     Zero,
     One,
