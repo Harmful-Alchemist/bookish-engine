@@ -142,16 +142,13 @@ impl Machine {
                     self.registers[*register as usize] += *constant;
                 }
                 Instruction::ShiftLeft { register, amount } => {
-                    self.registers[*register as usize] =
-                        self.registers[*register as usize] << amount;
+                    self.registers[*register as usize] <<= amount;
                 }
                 Instruction::ShiftRight { register, amount } => {
-                    self.registers[*register as usize] =
-                        self.registers[*register as usize] >> amount;
+                    self.registers[*register as usize] >>= amount;
                 }
                 Instruction::SubtractI { register, constant } => {
-                    self.registers[*register as usize] =
-                        self.registers[*register as usize] - *constant;
+                    self.registers[*register as usize] -= *constant;
                 }
             }
 
@@ -164,7 +161,7 @@ impl Machine {
                 self.registers[3],
                 self.registers[4],
             );
-            self.pc = self.pc + 1;
+            self.pc += 1;
             if self.pc == program.len() as u16 {
                 break;
             }

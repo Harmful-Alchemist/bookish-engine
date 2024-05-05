@@ -30,6 +30,6 @@ fn main() -> Result<(), String> {
     machine.run(compiled);
     let answer = machine.answer_by_convention();
 
-    println!("{}", format!("{answer:08b}"));
+    println!("{answer:08b}");
     Ok(())
 }

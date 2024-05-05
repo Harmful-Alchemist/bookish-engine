@@ -35,7 +35,7 @@ impl Parser {
             Repeat(parser) => {
                 let mut prev = (tokens, nodes.to_vec());
                 let mut next = parser.parse(prev.0.clone(), &prev.1)?;
-                while !prev.0.is_empty() && &next.0.len() < &prev.0.len() {
+                while !prev.0.is_empty() && next.0.len() < prev.0.len() {
                     prev = (next.0.clone(), next.1);
                     next = parser.parse(prev.0.clone(), &prev.1)?;
                 }
@@ -61,18 +61,14 @@ impl Parser {
                 [MulT, ..] => Ok((tokens[1..].to_vec(), nodes.to_vec())),
                 _ => Ok((tokens, nodes.to_vec())),
             },
-            Number => {
-                return match Exactly(4, Box::new(Digit)).parse(tokens.clone(), nodes)? {
-                    (new_tokens, new_ns)
-                        if new_ns.len() >= 4 && new_tokens.len() < tokens.len() =>
-                    {
-                        let mut new_nodes = vec![NumberN(to_i8(&new_ns[0..4])?)];
-                        new_nodes.append(&mut nodes.to_vec());
-                        Ok((new_tokens, new_nodes))
-                    }
-                    _ => Ok((tokens, nodes.to_vec())),
-                };
-            }
+            Number => match Exactly(4, Box::new(Digit)).parse(tokens.clone(), nodes)? {
+                (new_tokens, new_ns) if new_ns.len() >= 4 && new_tokens.len() < tokens.len() => {
+                    let mut new_nodes = vec![NumberN(to_i8(&new_ns[0..4])?)];
+                    new_nodes.append(&mut nodes.to_vec());
+                    Ok((new_tokens, new_nodes))
+                }
+                _ => Ok((tokens, nodes.to_vec())),
+            },
             Or(first, second) => match first.parse(tokens.clone(), nodes)? {
                 (new_tokens, new_nodes) if new_tokens.len() < tokens.len() => {
                     Ok((new_tokens, new_nodes))
@@ -126,10 +122,7 @@ fn op(tokens: Vec<Token>, nodes: &[Node], div: bool) -> Result<(Vec<Token>, Vec<
     match Then(
         Box::new(Or(
             Box::new(If {
-                pred: |_, y| match y.first() {
-                    Some(MulN { .. }) | Some(DivN { .. }) => true,
-                    _ => false,
-                },
+                pred: |_, y| matches!(y.first(), Some(MulN { .. }) | Some(DivN { .. })),
                 parser: Box::new(parser.clone()),
             }),
             Box::new(Then(Box::new(Number), Box::new(parser))),
@@ -157,10 +150,10 @@ fn op(tokens: Vec<Token>, nodes: &[Node], div: bool) -> Result<(Vec<Token>, Vec<
 fn to_i8(inp: &[Node]) -> Result<i8, &'static str> {
     let mut res = 0;
     for x in inp {
-        res = res >> 1;
+        res >>= 1;
         match x {
             Temp(0) => {}
-            Temp(1) => res = res + 8,
+            Temp(1) => res += 8,
             _ => return Err("Uh no"),
         }
     }

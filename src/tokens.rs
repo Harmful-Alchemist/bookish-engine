@@ -1,7 +1,7 @@
 use crate::tokens::Token::{DivT, MulT, One, Zero};
 
 //Tokenize
-pub fn tokenize(inp: &String) -> Result<Vec<Token>, &'static str> {
+pub fn tokenize(inp: &str) -> Result<Vec<Token>, &'static str> {
     if !inp.is_ascii() {
         return Err("I only know ascii 😀");
     }
