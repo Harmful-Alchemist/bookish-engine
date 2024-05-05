@@ -8,7 +8,6 @@ mod execute;
 mod parsing;
 mod tokens;
 
-//TODO clippy
 fn main() -> Result<(), String> {
     let args: Vec<String> = env::args().collect();
     if args.len() != 2 {

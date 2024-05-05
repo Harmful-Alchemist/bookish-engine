@@ -41,16 +41,16 @@ impl Compiler {
                 });
                 Ok(())
             }
-            Node::MulN { lhs: rhs, rhs: lhs } => {
-                //rhs can be another type
-                Self::compile_node(instructions, rhs.as_ref())?;
+            Node::MulN { lhs, rhs } => {
+                //lhs can be another type
+                Self::compile_node(instructions, lhs.as_ref())?;
                 instructions.push(Copy {
                     src: RESULT_REGISTER,
                     dest: MULTIPLICAND_REGISTER,
                 });
 
-                //lhs is always a number
-                Self::compile_node(instructions, lhs.as_ref())?;
+                //rhs is always a number
+                Self::compile_node(instructions, rhs.as_ref())?;
                 instructions.push(Copy {
                     src: RESULT_REGISTER,
                     dest: MULTIPLIER_REGISTER,
@@ -117,16 +117,16 @@ impl Compiler {
 
                 Ok(())
             }
-            Node::DivN { lhs: rhs, rhs: lhs } => {
-                //lhs is always a number, but is actually the RHS! TODO
-                Self::compile_node(instructions, lhs.as_ref())?;
+            Node::DivN { lhs, rhs } => {
+                //rhs is always a number
+                Self::compile_node(instructions, rhs.as_ref())?;
                 instructions.push(Copy {
                     src: RESULT_REGISTER,
                     dest: DIVISOR_REGISTER,
                 });
 
                 //rhs can be another type
-                Self::compile_node(instructions, rhs.as_ref())?;
+                Self::compile_node(instructions, lhs.as_ref())?;
 
                 instructions.push(ShiftLeft {
                     register: DIVISOR_REGISTER,
