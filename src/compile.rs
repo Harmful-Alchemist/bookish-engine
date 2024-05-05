@@ -1,20 +1,20 @@
 use crate::execute::Instruction::{
-    Add, AndI, Copy, JumpIf, Negate, ShiftLeft, ShiftRight, StoreI, Subtract, SubtractI,
+    Add, AddI, AndI, Copy, Jump, JumpIf, Negate, ShiftLeft, ShiftRight, StoreI, Subtract, SubtractI,
 };
 use crate::execute::{Instruction, Label};
 use crate::parsing::Node;
 
-pub const RESULT_REGISTER: u8 = 3; //Or Quotient
+pub const RESULT_REGISTER: u8 = 3;
+pub const REMAINDER_REGISTER: u8 = 3;
 pub const ITERATION_REGISTER: u8 = 0;
 const MULTIPLIER_REGISTER: u8 = 1;
 const MULTIPLICAND_REGISTER: u8 = 2;
-const DIVISOR_REGISTER: u8 = 1;
-const REMAINDER_REGISTER: u8 = 2;
+const DIVISOR_REGISTER: u8 = 2;
+const QUOTIENT_REGISTER: u8 = 1;
 const TEST_REGISTER: u8 = 4;
 pub struct Compiler {
     instructions: Vec<Instruction>,
     ast: Vec<Node>,
-    // free: [bool; 4],
 }
 
 impl Compiler {
@@ -22,12 +22,7 @@ impl Compiler {
         Self {
             instructions: Vec::new(),
             ast,
-            // free: [true; 4],
         }
-    }
-
-    fn first_free(free: &[bool; 4]) -> Option<usize> {
-        free.iter().position(|x| *x)
     }
 
     pub fn compile(mut self) -> Result<Vec<Instruction>, String> {
@@ -37,11 +32,7 @@ impl Compiler {
         Ok(self.instructions)
     }
 
-    fn compile_node(
-        instructions: &mut Vec<Instruction>,
-        // free: &mut [bool; 4],
-        node: &Node,
-    ) -> Result<(), String> {
+    fn compile_node(instructions: &mut Vec<Instruction>, node: &Node) -> Result<(), String> {
         match node {
             Node::NumberN(x) => {
                 instructions.push(StoreI {
@@ -72,7 +63,7 @@ impl Compiler {
                 });
 
                 instructions.push(StoreI {
-                    constant: 4, //TODO maybe 5
+                    constant: 4,
                     register: ITERATION_REGISTER,
                 });
 
@@ -127,7 +118,110 @@ impl Compiler {
                 Ok(())
             }
             Node::DivN { rhs, lhs } => {
-                todo!()
+                //lhs is always a number, but is actually the RHS! TODO
+                Self::compile_node(instructions, lhs.as_ref())?;
+                instructions.push(Copy {
+                    src: RESULT_REGISTER,
+                    dest: DIVISOR_REGISTER,
+                });
+
+                //rhs can be another type
+                Self::compile_node(instructions, rhs.as_ref())?;
+
+                instructions.push(ShiftLeft {
+                    register: DIVISOR_REGISTER,
+                    amount: 4,
+                });
+
+                // We want the remainder in the answer register anyway
+
+                //Zero-out quotient register
+                instructions.push(StoreI {
+                    constant: 0,
+                    register: QUOTIENT_REGISTER,
+                });
+
+                instructions.push(StoreI {
+                    constant: 5,
+                    register: ITERATION_REGISTER,
+                });
+
+                let jump_point = instructions.len() as u16;
+
+                //step 1
+                instructions.push(Subtract {
+                    lhs: REMAINDER_REGISTER,
+                    rhs: DIVISOR_REGISTER,
+                    dest: REMAINDER_REGISTER,
+                });
+
+                //step 2
+                instructions.push(Copy {
+                    src: REMAINDER_REGISTER,
+                    dest: TEST_REGISTER,
+                });
+
+                instructions.push(AndI {
+                    register: TEST_REGISTER,
+                    constant: i8::MIN,
+                }); //0x10
+
+                let label1 = (instructions.len() + 4) as u16;
+                instructions.push(JumpIf {
+                    instruction: label1,
+                    test: TEST_REGISTER,
+                });
+                //branch for rem >= 0
+                instructions.push(ShiftLeft {
+                    register: QUOTIENT_REGISTER,
+                    amount: 1,
+                });
+                instructions.push(AddI {
+                    //Could use SubtractI with negative number but whatevs.
+                    register: QUOTIENT_REGISTER,
+                    constant: 1,
+                });
+
+                let label2 = (instructions.len() + 3) as u16;
+                instructions.push(Jump {
+                    instruction: label2,
+                }); //Jump to step 3
+
+                //branch for rem < 0
+                instructions.push(Add {
+                    lhs: REMAINDER_REGISTER,
+                    rhs: DIVISOR_REGISTER,
+                    dest: REMAINDER_REGISTER,
+                });
+                instructions.push(ShiftLeft {
+                    register: QUOTIENT_REGISTER,
+                    amount: 1,
+                });
+
+                //step 3
+                instructions.push(ShiftRight {
+                    register: DIVISOR_REGISTER,
+                    amount: 1,
+                });
+
+                //Iterate
+                instructions.push(SubtractI {
+                    register: ITERATION_REGISTER,
+                    constant: 1,
+                });
+
+                instructions.push(JumpIf {
+                    instruction: jump_point,
+                    test: ITERATION_REGISTER,
+                });
+
+                //Forget remainder
+                instructions.push(Copy {
+                    src: QUOTIENT_REGISTER,
+                    dest: RESULT_REGISTER,
+                });
+
+                Ok(())
             }
             Node::Temp(_) => Err("Bad parsing!".to_string()),
         }

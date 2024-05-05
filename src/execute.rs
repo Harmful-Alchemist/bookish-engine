@@ -1,4 +1,3 @@
-use crate::compile::ITERATION_REGISTER;
 use std::fmt::{Display, Formatter};
 
 pub type Label = u16;
@@ -45,6 +44,10 @@ pub enum Instruction {
         rhs: Register,
         dest: Register,
     },
+    AddI {
+        register: Register,
+        constant: i8,
+    },
     ShiftLeft {
         register: Register,
         amount: u8,
@@ -67,6 +70,7 @@ impl Instruction {
             Instruction::Subtract { .. } => "Subtract",
             Instruction::SubtractI { .. } => "SubtractI",
             Instruction::Add { .. } => "Add",
+            Instruction::AddI { .. } => "Add",
             Instruction::ShiftLeft { .. } => "ShiftLeft",
             Instruction::ShiftRight { .. } => "ShiftRight",
         }
@@ -108,18 +112,15 @@ impl Machine {
                     //^ *constant;
                 }
                 Instruction::AndI { register, constant } => {
-                    self.registers[*register as usize] =
-                        self.registers[*register as usize] & constant;
+                    self.registers[*register as usize] &= constant;
                 }
                 Instruction::Jump { instruction } => {
                     self.pc = *instruction;
-                    // println!("Jumped!");
                     continue;
                 }
                 Instruction::JumpIf { instruction, test } => {
                     if self.registers[*test as usize] != 0 {
                         self.pc = *instruction;
-                        // println!("Jumped");
                         continue;
                     }
                 }
@@ -136,6 +137,9 @@ impl Machine {
                 Instruction::Add { lhs, rhs, dest } => {
                     self.registers[*dest as usize] =
                         self.registers[*lhs as usize] + self.registers[*rhs as usize];
+                }
+                Instruction::AddI { register, constant } => {
+                    self.registers[*register as usize] += *constant;
                 }
                 Instruction::ShiftLeft { register, amount } => {
                     self.registers[*register as usize] =
