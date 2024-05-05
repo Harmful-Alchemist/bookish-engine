@@ -53,29 +53,18 @@ impl Parser {
                 }
                 Ok((prev.0, prev.1.to_vec()))
             }
-            Then(first, second) => {
-                if tokens.is_empty() {
-                    return Ok((tokens, nodes.to_vec()));
-                }
-                match first.parse(tokens.clone(), nodes)? {
-                    (first_ts, first_ns) if first_ts.len() < tokens.len() => {
-                        match second.parse(first_ts.clone(), &first_ns)? {
-                            (second_ts, second_ns) if second_ts.len() < first_ts.len() => {
-                                Ok((second_ts, second_ns.to_vec()))
-                            }
-                            _ => Ok((tokens, nodes.to_vec())),
+            Then(first, second) => match first.parse(tokens.clone(), nodes)? {
+                (first_ts, first_ns) if first_ts.len() < tokens.len() => {
+                    match second.parse(first_ts.clone(), &first_ns)? {
+                        (second_ts, second_ns) if second_ts.len() < first_ts.len() => {
+                            Ok((second_ts, second_ns.to_vec()))
                         }
+                        _ => Ok((tokens, nodes.to_vec())),
                     }
-                    _ => Ok((tokens, nodes.to_vec())),
                 }
-            }
-            Expr => {
-                if tokens.is_empty() {
-                    Ok((tokens, nodes.to_vec()))
-                } else {
-                    Repeat(Box::new(Or(Box::new(DivE), Box::new(MulE)))).parse(tokens, nodes)
-                }
-            }
+                _ => Ok((tokens, nodes.to_vec())),
+            },
+            Expr => Repeat(Box::new(Or(Box::new(DivE), Box::new(MulE)))).parse(tokens, nodes),
             DivP => match tokens[..] {
                 [DivT, ..] => Ok((tokens[1..].to_vec(), nodes.to_vec())),
                 _ => Ok((tokens, nodes.to_vec())),
@@ -85,10 +74,6 @@ impl Parser {
                 _ => Ok((tokens, nodes.to_vec())),
             },
             Number => {
-                if tokens.is_empty() {
-                    return Ok((tokens, nodes.to_vec()));
-                }
-
                 return match Exactly(4, Box::new(Digit)).parse(tokens.clone(), nodes)? {
                     (new_tokens, new_ns)
                         if new_ns.len() >= 4 && new_tokens.len() < tokens.len() =>
@@ -118,24 +103,19 @@ impl Parser {
                 }
                 Ok(next)
             }
-            Digit => {
-                if tokens.is_empty() {
-                    return Ok((tokens, nodes.to_vec()));
+            Digit => match tokens[0] {
+                Zero => {
+                    let mut new_nodes = vec![Temp(0)];
+                    new_nodes.append(&mut nodes.to_vec());
+                    Ok((tokens[1..].to_vec(), new_nodes))
                 }
-                match tokens[0] {
-                    Zero => {
-                        let mut new_nodes = vec![Temp(0)];
-                        new_nodes.append(&mut nodes.to_vec());
-                        Ok((tokens[1..].to_vec(), new_nodes))
-                    }
-                    One => {
-                        let mut new_nodes = vec![Temp(1)];
-                        new_nodes.append(&mut nodes.to_vec());
-                        Ok((tokens[1..].to_vec(), new_nodes))
-                    }
-                    _ => Ok((tokens, nodes.to_vec())),
+                One => {
+                    let mut new_nodes = vec![Temp(1)];
+                    new_nodes.append(&mut nodes.to_vec());
+                    Ok((tokens[1..].to_vec(), new_nodes))
                 }
-            }
+                _ => Ok((tokens, nodes.to_vec())),
+            },
             MulE => op(tokens, nodes, false),
             DivE => op(tokens, nodes, true),
             If { pred, parser } => {
@@ -187,7 +167,7 @@ fn op(tokens: Vec<Token>, nodes: &[Node], div: bool) -> Result<(Vec<Token>, Vec<
 }
 
 fn to_i8(inp: &[Node]) -> Result<i8, &'static str> {
-    let mut res = 0x0F;
+    let mut res = 0;
     for x in inp {
         res = res >> 1;
         match x {
