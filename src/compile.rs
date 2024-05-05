@@ -41,7 +41,7 @@ impl Compiler {
                 });
                 Ok(())
             }
-            Node::MulN { rhs, lhs } => {
+            Node::MulN { lhs: rhs, rhs: lhs } => {
                 //rhs can be another type
                 Self::compile_node(instructions, rhs.as_ref())?;
                 instructions.push(Copy {
@@ -117,7 +117,7 @@ impl Compiler {
 
                 Ok(())
             }
-            Node::DivN { rhs, lhs } => {
+            Node::DivN { lhs: rhs, rhs: lhs } => {
                 //lhs is always a number, but is actually the RHS! TODO
                 Self::compile_node(instructions, lhs.as_ref())?;
                 instructions.push(Copy {

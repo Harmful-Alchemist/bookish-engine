@@ -135,9 +135,9 @@ fn op(tokens: Vec<Token>, nodes: &[Node], div: bool) -> Result<(Vec<Token>, Vec<
             let lhs = Box::new(new_ns[0].clone());
             let rhs = Box::new(new_ns[1].clone());
             let node = if div {
-                DivN { lhs, rhs }
+                DivN { rhs: lhs, lhs: rhs }
             } else {
-                MulN { lhs, rhs }
+                MulN { rhs: lhs, lhs: rhs }
             };
             let mut newer_ns = vec![node];
             newer_ns.append(&mut new_ns[2..].to_vec());
@@ -163,7 +163,7 @@ fn to_i8(inp: &[Node]) -> Result<i8, &'static str> {
 #[derive(Clone, Debug, Eq, PartialEq)]
 pub enum Node {
     NumberN(i8),
-    MulN { rhs: Box<Self>, lhs: Box<Self> },
-    DivN { rhs: Box<Self>, lhs: Box<Self> },
+    MulN { lhs: Box<Self>, rhs: Box<Self> },
+    DivN { lhs: Box<Self>, rhs: Box<Self> },
     Temp(i8),
 }
