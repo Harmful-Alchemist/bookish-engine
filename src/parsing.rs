@@ -63,7 +63,7 @@ impl Parser {
             },
             Number => match Exactly(4, Box::new(Digit)).parse(tokens.clone(), nodes)? {
                 (new_tokens, new_ns) if new_ns.len() >= 4 && new_tokens.len() < tokens.len() => {
-                    let mut new_nodes = vec![NumberN(to_i8(&new_ns[0..4])?)];
+                    let mut new_nodes = vec![NumberN(to_i16(&new_ns[0..4])?)];
                     new_nodes.append(&mut nodes.to_vec());
                     Ok((new_tokens, new_nodes))
                 }
@@ -147,7 +147,7 @@ fn op(tokens: Vec<Token>, nodes: &[Node], div: bool) -> Result<(Vec<Token>, Vec<
     }
 }
 
-fn to_i8(inp: &[Node]) -> Result<i8, &'static str> {
+fn to_i16(inp: &[Node]) -> Result<i16, &'static str> {
     let mut res = 0;
     for x in inp {
         res >>= 1;
@@ -162,7 +162,7 @@ fn to_i8(inp: &[Node]) -> Result<i8, &'static str> {
 
 #[derive(Clone, Debug, Eq, PartialEq)]
 pub enum Node {
-    NumberN(i8),
+    NumberN(i16),
     MulN { lhs: Box<Self>, rhs: Box<Self> },
     DivN { lhs: Box<Self>, rhs: Box<Self> },
     Temp(i8),

@@ -1,7 +1,7 @@
 use crate::execute::Instruction::{
     Add, AddI, AndI, Copy, Jump, JumpIf, Negate, ShiftLeft, ShiftRight, StoreI, Subtract, SubtractI,
 };
-use crate::execute::{Instruction, Label};
+use crate::execute::{Instruction, Label, RegisterContent};
 use crate::parsing::Node;
 
 pub const RESULT_REGISTER: u8 = 3;
@@ -115,19 +115,36 @@ impl Compiler {
                     test: ITERATION_REGISTER,
                 });
 
+                //Truncate
+                instructions.push(AndI { register: RESULT_REGISTER, constant: 0xF });
+
                 Ok(())
             }
             Node::DivN { lhs, rhs } => {
+                //lhs can be another type
+                Self::compile_node(instructions, lhs.as_ref())?;
+                instructions.push(Copy { src: RESULT_REGISTER, dest: TEST_REGISTER });
+
                 //rhs is always a number
                 Self::compile_node(instructions, rhs.as_ref())?;
                 instructions.push(Copy {
                     src: RESULT_REGISTER,
-                    dest: DIVISOR_REGISTER,
+                    dest: DIVISOR_REGISTER, //This copy fails?
                 });
 
-                //rhs can be another type
-                Self::compile_node(instructions, lhs.as_ref())?;
+                instructions.push(Copy { src: TEST_REGISTER, dest: RESULT_REGISTER });
 
+                //If we're dividing zero, return zero. Dividing by zero is fine, or add a TRAP?
+                instructions.push(Copy { src: RESULT_REGISTER, dest: TEST_REGISTER });
+                instructions.push(AddI { register: TEST_REGISTER, constant: 15 });
+                instructions.push(Negate { register: TEST_REGISTER });
+                instructions.push(ShiftRight { register: TEST_REGISTER, amount: 4 });
+                instructions.push(AndI { register: TEST_REGISTER, constant: 1 });
+                let zero_label = instructions.len() + 16;
+                instructions.push(JumpIf { instruction: zero_label as Label, test: TEST_REGISTER });
+
+
+                //Resume algorithm
                 instructions.push(ShiftLeft {
                     register: DIVISOR_REGISTER,
                     amount: 4,
@@ -163,8 +180,8 @@ impl Compiler {
 
                 instructions.push(AndI {
                     register: TEST_REGISTER,
-                    constant: i8::MIN,
-                }); //0x10
+                    constant: RegisterContent::MIN,
+                });
 
                 let label1 = (instructions.len() + 4) as u16;
                 instructions.push(JumpIf {
@@ -220,6 +237,9 @@ impl Compiler {
                     src: QUOTIENT_REGISTER,
                     dest: RESULT_REGISTER,
                 });
+
+                //Truncate
+                instructions.push(AndI { register: RESULT_REGISTER, constant: 0xF });
 
                 Ok(())
             }

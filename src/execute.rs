@@ -3,6 +3,7 @@ use std::fmt::{Display, Formatter};
 pub type Label = u16;
 
 type Register = u8;
+pub type RegisterContent = i16;
 
 //Execution
 #[derive(Clone, Debug)]
@@ -13,7 +14,7 @@ pub enum Instruction {
     },
     AndI {
         register: Register,
-        constant: i8,
+        constant: RegisterContent,
     },
     Jump {
         instruction: Label,
@@ -23,7 +24,7 @@ pub enum Instruction {
         test: Register,
     }, //Jump if zero in test register
     StoreI {
-        constant: i8,
+        constant: RegisterContent,
         register: Register,
     },
     Copy {
@@ -37,7 +38,7 @@ pub enum Instruction {
     },
     SubtractI {
         register: Register,
-        constant: i8,
+        constant: RegisterContent,
     },
     Add {
         lhs: Register,
@@ -46,7 +47,7 @@ pub enum Instruction {
     },
     AddI {
         register: Register,
-        constant: i8,
+        constant: RegisterContent,
     },
     ShiftLeft {
         register: Register,
@@ -85,7 +86,7 @@ impl Display for Instruction {
 }
 
 pub struct Machine {
-    registers: [i8; 5],
+    registers: [RegisterContent; 5],
     pc: u16,
 }
 
@@ -97,7 +98,7 @@ impl Machine {
         }
     }
 
-    pub fn answer_by_convention(&self) -> i8 {
+    pub fn answer_by_convention(&self) -> RegisterContent {
         self.registers[3]
     }
 
@@ -145,7 +146,7 @@ impl Machine {
                     self.registers[*register as usize] <<= amount;
                 }
                 Instruction::ShiftRight { register, amount } => {
-                    self.registers[*register as usize] >>= amount;
+                    self.registers[*register as usize] = (self.registers[*register as usize] as u16 >> amount) as RegisterContent;
                 }
                 Instruction::SubtractI { register, constant } => {
                     self.registers[*register as usize] -= *constant;
