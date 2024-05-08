@@ -48,6 +48,8 @@ impl Compiler {
                     src: RESULT_REGISTER,
                     dest: MULTIPLICAND_REGISTER,
                 });
+                //Truncate input
+                instructions.push(AndI { register: MULTIPLICAND_REGISTER, constant: 0xF });
 
                 //rhs is always a number
                 Self::compile_node(instructions, rhs.as_ref())?;
@@ -115,15 +117,14 @@ impl Compiler {
                     test: ITERATION_REGISTER,
                 });
 
-                //Truncate
-                instructions.push(AndI { register: RESULT_REGISTER, constant: 0xF });
-
                 Ok(())
             }
             Node::DivN { lhs, rhs } => {
                 //lhs can be another type
                 Self::compile_node(instructions, lhs.as_ref())?;
                 instructions.push(Copy { src: RESULT_REGISTER, dest: TEST_REGISTER });
+                //Truncate input.
+                instructions.push(AndI { register: TEST_REGISTER, constant: 0xF });
 
                 //rhs is always a number
                 Self::compile_node(instructions, rhs.as_ref())?;
@@ -237,9 +238,6 @@ impl Compiler {
                     src: QUOTIENT_REGISTER,
                     dest: RESULT_REGISTER,
                 });
-
-                //Truncate
-                instructions.push(AndI { register: RESULT_REGISTER, constant: 0xF });
 
                 Ok(())
             }
