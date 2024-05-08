@@ -42,7 +42,7 @@ mod tests {
     use crate::tokens;
     use std::fmt::{Display, Formatter};
 
-    #[derive(Eq,PartialEq)]
+    #[derive(Eq, PartialEq)]
     enum Op {
         MulOp,
         DivOp,
@@ -54,11 +54,10 @@ mod tests {
                 MulOp => |x, y| i16::overflowing_mul(x, y).0,
                 DivOp => |x, y| {
                     if y == 0 && x != 0 {
-                       0x1F
+                        0x1F
                     } else if y == 0 {
                         0
-                    }
-                    else {
+                    } else {
                         i16::overflowing_div(x, y).0
                     }
                 },
@@ -91,17 +90,22 @@ mod tests {
             }
         }
 
-        for op in [(MulOp,MulOp),(MulOp,DivOp), (DivOp,DivOp),(DivOp,MulOp)] {
+        for op in [
+            (MulOp, MulOp),
+            (MulOp, DivOp),
+            (DivOp, DivOp),
+            (DivOp, MulOp),
+        ] {
             for i in 0..16 {
                 for j in 0..16 {
                     for k in 0..16 {
                         if k == 0 && op.1 == DivOp {
-                            continue //Whatever division by zero don't care..
+                            continue; //Whatever division by zero don't care..
                         }
-                        println!("{i:04b}{}{j:04b}{}{k:04b}", op.0,op.1);
+                        println!("{i:04b}{}{j:04b}{}{k:04b}", op.0, op.1);
                         assert_eq!(
-                            calculate(format!("{i:04b}{}{j:04b}{}{k:04b}", op.0,op.1).as_str()),
-                            op.1.op()(op.0.op()(i as i16, j as i16) &0xF, k as i16)
+                            calculate(format!("{i:04b}{}{j:04b}{}{k:04b}", op.0, op.1).as_str()),
+                            op.1.op()(op.0.op()(i as i16, j as i16) & 0xF, k as i16)
                         )
                     }
                 }

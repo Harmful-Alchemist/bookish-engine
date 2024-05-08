@@ -49,7 +49,10 @@ impl Compiler {
                     dest: MULTIPLICAND_REGISTER,
                 });
                 //Truncate input
-                instructions.push(AndI { register: MULTIPLICAND_REGISTER, constant: 0xF });
+                instructions.push(AndI {
+                    register: MULTIPLICAND_REGISTER,
+                    constant: 0xF,
+                });
 
                 //rhs is always a number
                 Self::compile_node(instructions, rhs.as_ref())?;
@@ -122,9 +125,15 @@ impl Compiler {
             Node::DivN { lhs, rhs } => {
                 //lhs can be another type
                 Self::compile_node(instructions, lhs.as_ref())?;
-                instructions.push(Copy { src: RESULT_REGISTER, dest: TEST_REGISTER });
+                instructions.push(Copy {
+                    src: RESULT_REGISTER,
+                    dest: TEST_REGISTER,
+                });
                 //Truncate input.
-                instructions.push(AndI { register: TEST_REGISTER, constant: 0xF });
+                instructions.push(AndI {
+                    register: TEST_REGISTER,
+                    constant: 0xF,
+                });
 
                 //rhs is always a number
                 Self::compile_node(instructions, rhs.as_ref())?;
@@ -133,17 +142,36 @@ impl Compiler {
                     dest: DIVISOR_REGISTER, //This copy fails?
                 });
 
-                instructions.push(Copy { src: TEST_REGISTER, dest: RESULT_REGISTER });
+                instructions.push(Copy {
+                    src: TEST_REGISTER,
+                    dest: RESULT_REGISTER,
+                });
 
                 //If we're dividing zero, return zero. Dividing by zero is fine, or add a TRAP?
-                instructions.push(Copy { src: RESULT_REGISTER, dest: TEST_REGISTER });
-                instructions.push(AddI { register: TEST_REGISTER, constant: 15 });
-                instructions.push(Negate { register: TEST_REGISTER });
-                instructions.push(ShiftRight { register: TEST_REGISTER, amount: 4 });
-                instructions.push(AndI { register: TEST_REGISTER, constant: 1 });
+                instructions.push(Copy {
+                    src: RESULT_REGISTER,
+                    dest: TEST_REGISTER,
+                });
+                instructions.push(AddI {
+                    register: TEST_REGISTER,
+                    constant: 15,
+                });
+                instructions.push(Negate {
+                    register: TEST_REGISTER,
+                });
+                instructions.push(ShiftRight {
+                    register: TEST_REGISTER,
+                    amount: 4,
+                });
+                instructions.push(AndI {
+                    register: TEST_REGISTER,
+                    constant: 1,
+                });
                 let zero_label = instructions.len() + 16;
-                instructions.push(JumpIf { instruction: zero_label as Label, test: TEST_REGISTER });
-
+                instructions.push(JumpIf {
+                    instruction: zero_label as Label,
+                    test: TEST_REGISTER,
+                });
 
                 //Resume algorithm
                 instructions.push(ShiftLeft {

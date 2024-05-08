@@ -146,7 +146,8 @@ impl Machine {
                     self.registers[*register as usize] <<= amount;
                 }
                 Instruction::ShiftRight { register, amount } => {
-                    self.registers[*register as usize] = (self.registers[*register as usize] as u16 >> amount) as RegisterContent;
+                    self.registers[*register as usize] =
+                        (self.registers[*register as usize] as u16 >> amount) as RegisterContent;
                 }
                 Instruction::SubtractI { register, constant } => {
                     self.registers[*register as usize] -= *constant;

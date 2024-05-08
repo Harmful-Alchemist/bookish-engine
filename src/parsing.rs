@@ -87,19 +87,24 @@ impl Parser {
                 }
                 Ok(next)
             }
-            Digit => match tokens[0] {
-                Zero => {
-                    let mut new_nodes = vec![Temp(0)];
-                    new_nodes.append(&mut nodes.to_vec());
-                    Ok((tokens[1..].to_vec(), new_nodes))
+            Digit => {
+                if tokens.is_empty() {
+                    return Ok((tokens, nodes.to_vec()));
                 }
-                One => {
-                    let mut new_nodes = vec![Temp(1)];
-                    new_nodes.append(&mut nodes.to_vec());
-                    Ok((tokens[1..].to_vec(), new_nodes))
+                match tokens[0] {
+                    Zero => {
+                        let mut new_nodes = vec![Temp(0)];
+                        new_nodes.append(&mut nodes.to_vec());
+                        Ok((tokens[1..].to_vec(), new_nodes))
+                    }
+                    One => {
+                        let mut new_nodes = vec![Temp(1)];
+                        new_nodes.append(&mut nodes.to_vec());
+                        Ok((tokens[1..].to_vec(), new_nodes))
+                    }
+                    _ => Ok((tokens, nodes.to_vec())),
                 }
-                _ => Ok((tokens, nodes.to_vec())),
-            },
+            }
             MulE => op(tokens, nodes, false),
             DivE => op(tokens, nodes, true),
             If { pred, parser } => {
